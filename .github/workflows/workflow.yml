@@ -39,3 +39,5 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./coverage.txt
+      - name: Test env
+        run: env | sed 's;=.*;;' | sort
