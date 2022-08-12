@@ -19,6 +19,7 @@ import (
 	"github.com/hove-io/forseti/internal/freefloatings/fluctuo"
 	"github.com/hove-io/forseti/internal/manager"
 	"github.com/hove-io/forseti/internal/parkings"
+	"github.com/hove-io/forseti/internal/sirism"
 	"github.com/hove-io/forseti/internal/vehicleoccupancies"
 	"github.com/hove-io/forseti/internal/vehiclepositions"
 	"github.com/pkg/errors"
@@ -377,6 +378,10 @@ func Departures(
 			serviceSwitchTime,
 		)
 		go rennesContext.RefereshDeparturesLoop(departuresContext)
+	} else if config.DeparturesType == string(connectors.Connector_SIRI_SM) { // Enable the SIRI-SM connector
+		var siriSmContext sirism.SiriSmContext = sirism.SiriSmContext{}
+		siriSmContext.InitContext(config.ConnectionTimeout)
+		go siriSmContext.RefereshDeparturesLoop(departuresContext)
 	}
 }
 
