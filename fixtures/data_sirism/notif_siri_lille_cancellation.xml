@@ -1,0 +1,33 @@
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+	<soap:Body>
+		<ns1:NotifyStopMonitoring xmlns:ns1="http://wsdl.siri.org.uk">
+			<ServiceDeliveryInfo xmlns:ns2="http://www.ifopt.org.uk/acsb" xmlns:ns3="http://www.ifopt.org.uk/ifopt" xmlns:ns4="http://datex2.eu/schema/2_0RC1/2_0" xmlns:ns5="http://www.siri.org.uk/siri" xmlns:ns6="http://wsdl.siri.org.uk/siri">
+				<ns5:ResponseTimestamp>2022-08-16T04:36:15.640+02:00</ns5:ResponseTimestamp>
+				<ns5:ProducerRef>ILEVIA</ns5:ProducerRef>
+				<ns5:ResponseMessageIdentifier>ILEVIA:ResponseMessage::1483988:LOC</ns5:ResponseMessageIdentifier>
+				<ns5:RequestMessageRef>SUBREQ</ns5:RequestMessageRef>
+			</ServiceDeliveryInfo>
+			<Notification xmlns:ns2="http://www.ifopt.org.uk/acsb" xmlns:ns3="http://www.ifopt.org.uk/ifopt" xmlns:ns4="http://datex2.eu/schema/2_0RC1/2_0" xmlns:ns5="http://www.siri.org.uk/siri" xmlns:ns6="http://wsdl.siri.org.uk/siri">
+				<ns5:StopMonitoringDelivery version="2.0:FR-IDF-2.4">
+					<ns5:ResponseTimestamp>2022-08-16T04:36:15.640+02:00</ns5:ResponseTimestamp>
+					<ns5:RequestMessageRef>SUBHOR_ILEVIA:StopPoint:BP:ACO002:LOC</ns5:RequestMessageRef>
+					<ns5:SubscriberRef>KISIO2</ns5:SubscriberRef>
+					<ns5:SubscriptionRef>SUBHOR_ILEVIA:StopPoint:BP:ACO002:LOC</ns5:SubscriptionRef>
+					<ns5:Status>true</ns5:Status>
+					<ns5:MonitoringRef>ILEVIA:StopPoint:BP:ACO002:LOC</ns5:MonitoringRef>
+					<ns5:MonitoredStopVisitCancellation>
+						<ns5:RecordedAtTime>2022-08-16T04:36:15.591+02:00</ns5:RecordedAtTime>
+						<ns5:ItemRef>SIRI:139768251</ns5:ItemRef>
+						<ns5:MonitoringRef>ILEVIA:StopPoint:BP:ACO002:LOC</ns5:MonitoringRef>
+						<ns5:LineRef>ILEVIA:Line::Z6:LOC</ns5:LineRef>
+						<ns5:VehicleJourneyRef>
+							<ns5:DataFrameRef>ILEVIA:DataFrame::1.0:LOC</ns5:DataFrameRef>
+							<ns5:DatedVehicleJourneyRef>ILEVIA:VehicleJourney::Z6_1_040600_2_LAMJV_10:LOC</ns5:DatedVehicleJourneyRef>
+						</ns5:VehicleJourneyRef>
+					</ns5:MonitoredStopVisitCancellation>
+				</ns5:StopMonitoringDelivery>
+			</Notification>
+			<SiriExtension xmlns:ns2="http://www.ifopt.org.uk/acsb" xmlns:ns3="http://www.ifopt.org.uk/ifopt" xmlns:ns4="http://datex2.eu/schema/2_0RC1/2_0" xmlns:ns5="http://www.siri.org.uk/siri" xmlns:ns6="http://wsdl.siri.org.uk/siri"/>
+		</ns1:NotifyStopMonitoring>
+	</soap:Body>
+</soap:Envelope>

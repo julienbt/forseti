@@ -14,6 +14,7 @@ import (
 )
 
 type Departure struct {
+	Id                    string
 	LineRef               string
 	StopPointRef          string
 	DirectionType         departures.DirectionType
@@ -21,6 +22,11 @@ type Departure struct {
 	DestinationName       string
 	AimedDepartureTime    time.Time
 	ExpectedDepartureTime time.Time
+}
+
+type CancelledDeparture struct {
+	Id           string
+	StopPointRef string
 }
 
 func (d *Departure) DepartureTimeIsTheoretical() bool {
@@ -34,31 +40,34 @@ func (d *Departure) GetDepartureTime() time.Time {
 	return d.ExpectedDepartureTime
 }
 
-func LoadDeparturesFromFilePath(xmlFilePath string) ([]Departure, error) {
+func LoadDeparturesFromFilePath(xmlFilePath string) ([]Departure, []CancelledDeparture, error) {
 	xmlFile, err := os.Open(xmlFilePath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return LoadDeparturesFromOpenedFile(xmlFile)
 }
 
-func LoadDeparturesFromOpenedFile(xmlFile *os.File) ([]Departure, error) {
+func LoadDeparturesFromOpenedFile(xmlFile *os.File) ([]Departure, []CancelledDeparture, error) {
 	xmlBytes, err := ioutil.ReadAll(xmlFile)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return LoadDeparturesFromByteArray(xmlBytes)
 }
 
-func LoadDeparturesFromByteArray(xmlBytes []byte) ([]Departure, error) {
+func LoadDeparturesFromByteArray(xmlBytes []byte) ([]Departure, []CancelledDeparture, error) {
 	var envelope sirism_xml.Envelope
 	err := xml.Unmarshal(xmlBytes, &envelope)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	departuresList := make([]Departure, 0)
+	updatedDepartures := make([]Departure, 0)
+	cancelledDepartures := make([]CancelledDeparture, 0)
+
 	for _, smDelivery := range envelope.Notification.StopMonitoringDeliveries {
 		monitoringRef := string(smDelivery.MonitoringRef)
+		// Loop over tags `<MonitoredStopVisit>`
 		for _, monitoredStopVisit := range smDelivery.MonitoredStopVisits {
 			monitoredVehicleJourney := &monitoredStopVisit.MonitoredVehicleJourney
 			innerMonitoringRef := string(monitoredStopVisit.MonitoringRef)
@@ -68,9 +77,9 @@ func LoadDeparturesFromByteArray(xmlBytes []byte) ([]Departure, error) {
 					monitoringRef,
 					innerMonitoringRef,
 				)
-				return nil, err
+				return nil, nil, err
 			}
-			var loadedDeparture Departure
+			var updatedDeparture Departure
 			{
 				lineRef := string(monitoredVehicleJourney.LineRef)
 				directionName := monitoredVehicleJourney.DirectionName
@@ -80,11 +89,11 @@ func LoadDeparturesFromByteArray(xmlBytes []byte) ([]Departure, error) {
 				stopPointRef := string(monitoredCall.StopPointRef)
 				if monitoringRef != stopPointRef {
 					err := fmt.Errorf(
-						"the XML tags <MonitoringRef> and <StopPOintRef> mismatch: %s != %s",
+						"the XML tags <MonitoringRef> and <StopPointRef> mismatch: %s != %s",
 						monitoringRef,
 						stopPointRef,
 					)
-					return nil, err
+					return nil, nil, err
 				}
 				aimedDepartureTime := time.Time(monitoredCall.AimedDepartureTime)
 				expectedDepartureTime := time.Time(monitoredCall.ExpectedDepartureTime)
@@ -94,7 +103,8 @@ func LoadDeparturesFromByteArray(xmlBytes []byte) ([]Departure, error) {
 				} else {
 					directionType = departures.DirectionTypeBackward
 				}
-				loadedDeparture = Departure{
+				updatedDeparture = Departure{
+					Id:                    monitoredStopVisit.ItemIdentifier,
 					LineRef:               lineRef,
 					StopPointRef:          monitoringRef,
 					DirectionType:         directionType,
@@ -104,8 +114,30 @@ func LoadDeparturesFromByteArray(xmlBytes []byte) ([]Departure, error) {
 					ExpectedDepartureTime: expectedDepartureTime,
 				}
 			}
-			departuresList = append(departuresList, loadedDeparture)
+			updatedDepartures = append(updatedDepartures, updatedDeparture)
+		}
+
+		// Loop over tags `<MonitoredStopVisitCancellation>`
+		for _, monitoredStopVisitCanc := range smDelivery.MonitoredStopVisitCancellations {
+			innerMonitoringRef := string(monitoredStopVisitCanc.MonitoringRef)
+			if monitoringRef != innerMonitoringRef {
+				err := fmt.Errorf(
+					"the both XML tags <MonitoringRef> mismatch: %s != %s",
+					monitoringRef,
+					innerMonitoringRef,
+				)
+				return nil, nil, err
+			}
+			var cancelledDeparture CancelledDeparture
+			{
+
+				cancelledDeparture = CancelledDeparture{
+					Id:           monitoredStopVisitCanc.ItemRef,
+					StopPointRef: monitoringRef,
+				}
+			}
+			cancelledDepartures = append(cancelledDepartures, cancelledDeparture)
 		}
 	}
-	return departuresList, nil
+	return updatedDepartures, cancelledDepartures, nil
 }
