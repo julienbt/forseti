@@ -18,23 +18,36 @@ func (e *Envelope) GetTotalNumberOfMonitoredStopVisits() int {
 	return e.Notification.getTotalNumberOfMonitoredStopVisits()
 }
 
+func (e *Envelope) GetTotalNumberOfMonitoredStopVisitCancellations() int {
+	return e.Notification.getTotalNumberOfMonitoredStopVisitCancellations()
+}
+
 type Notification struct {
 	XMLName                  xml.Name                 `xml:"Notification"`
 	StopMonitoringDeliveries []StopMonitoringDelivery `xml:"StopMonitoringDelivery"`
 }
 
 func (n *Notification) getTotalNumberOfMonitoredStopVisits() int {
-	result := 0
+	sum := 0
 	for _, stopMonitoringDelivery := range n.StopMonitoringDeliveries {
-		result += len(stopMonitoringDelivery.MonitoredStopVisits)
+		sum += len(stopMonitoringDelivery.MonitoredStopVisits)
 	}
-	return result
+	return sum
+}
+
+func (n *Notification) getTotalNumberOfMonitoredStopVisitCancellations() int {
+	sum := 0
+	for _, stopMonitoringDelivery := range n.StopMonitoringDeliveries {
+		sum += len(stopMonitoringDelivery.MonitoredStopVisitCancellations)
+	}
+	return sum
 }
 
 type StopMonitoringDelivery struct {
-	XMLName             xml.Name             `xml:"StopMonitoringDelivery"`
-	MonitoringRef       StopPointRef         `xml:"MonitoringRef"`
-	MonitoredStopVisits []MonitoredStopVisit `xml:"MonitoredStopVisit"`
+	XMLName                         xml.Name                         `xml:"StopMonitoringDelivery"`
+	MonitoringRef                   StopPointRef                     `xml:"MonitoringRef"`
+	MonitoredStopVisits             []MonitoredStopVisit             `xml:"MonitoredStopVisit"`
+	MonitoredStopVisitCancellations []MonitoredStopVisitCancellation `xml:"MonitoredStopVisitCancellation"`
 }
 
 type StopPointRef string
@@ -60,6 +73,7 @@ func (mr *StopPointRef) UnmarshalXML(d *xml.Decoder, start xml.StartElement) err
 
 type MonitoredStopVisit struct {
 	XMLName                 xml.Name                `xml:"MonitoredStopVisit"`
+	ItemIdentifier          string                  `xml:"ItemIdentifier"`
 	MonitoringRef           StopPointRef            `xml:"MonitoringRef"`
 	MonitoredVehicleJourney MonitoredVehicleJourney `xml:"MonitoredVehicleJourney"`
 }
@@ -71,6 +85,12 @@ type MonitoredVehicleJourney struct {
 	DestinationRef  StopPointRef                `xml:"DestinationRef"`
 	DestinationName string                      `xml:"DestinationName"`
 	MonitoredCall   MonitoredCall               `xml:"MonitoredCall"`
+}
+
+type MonitoredStopVisitCancellation struct {
+	XMLName       xml.Name     `xml:"MonitoredStopVisitCancellation"`
+	ItemRef       string       `xml:"ItemRef"`
+	MonitoringRef StopPointRef `xml:"MonitoringRef"`
 }
 
 type LineRef string

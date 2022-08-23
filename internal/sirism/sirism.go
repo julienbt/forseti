@@ -18,7 +18,7 @@ import (
 type SiriSmContext struct {
 	connector  *connectors.Connector
 	lastUpdate *time.Time
-	departures []sirism_departure.Departure
+	departures map[string]sirism_departure.Departure
 	mutex      sync.RWMutex
 }
 
@@ -46,31 +46,66 @@ func (s *SiriSmContext) SetLastUpdate(lastUpdate *time.Time) {
 	s.lastUpdate = lastUpdate
 }
 
-func (s *SiriSmContext) UpdateDepartures(departures []sirism_departure.Departure) {
+func (s *SiriSmContext) UpdateDepartures(
+	updatedDepartures []sirism_departure.Departure,
+	cancelledDepartures []sirism_departure.CancelledDeparture,
+) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.departures = departures
+	oldDeparturesList := s.departures
+	newDeparturesList := make(map[string]sirism_departure.Departure, len(oldDeparturesList))
+	// Deep copy of the departures map
+	for departureId, departure := range oldDeparturesList {
+		newDeparturesList[departureId] = departure
+	}
+
+	// Delete cancelled departures
+	for _, cancelledDeparture := range cancelledDepartures {
+		cancelledDepartureId := cancelledDeparture.Id
+		if _, ok := newDeparturesList[cancelledDepartureId]; ok {
+			delete(newDeparturesList, cancelledDepartureId)
+			logrus.Debugf("The departure '%s' is cancelled", cancelledDepartureId)
+		} else {
+			logrus.Warnf("The departure '%s' cannot be cancelled, it is not exist", cancelledDepartureId)
+		}
+	}
+
+	// Add/update departures
+	for _, updatedDeparture := range updatedDepartures {
+		updatedDepartureId := updatedDeparture.Id
+		if _, ok := newDeparturesList[updatedDepartureId]; ok {
+			newDeparturesList[updatedDepartureId] = updatedDeparture
+			logrus.Debugf("The departure '%s' is updated", updatedDepartureId)
+		} else {
+			newDeparturesList[updatedDepartureId] = updatedDeparture
+			logrus.Debugf("The departure '%s' is added", updatedDepartureId)
+		}
+	}
+
+	s.departures = newDeparturesList
 	lastUpdateInUTC := time.Now().In(time.UTC)
 	s.lastUpdate = &lastUpdateInUTC
 }
 
-func (s *SiriSmContext) GetDepartures() []sirism_departure.Departure {
+func (s *SiriSmContext) GetDepartures() map[string]sirism_departure.Departure {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.departures
 }
 
 func (s *SiriSmContext) InitContext(connectionTimeout time.Duration) {
-	_, _ = loadNotificationFileExample()
-
-	s.SetConnector(connectors.NewConnector(
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.connector = connectors.NewConnector(
 		url.URL{}, // files URL
 		url.URL{}, // service URL
 		"",
 		time.Duration(-1),
 		time.Duration(-1),
 		connectionTimeout,
-	))
+	)
+	s.departures = make(map[string]sirism_departure.Departure)
+	s.lastUpdate = nil
 }
 
 func (d *SiriSmContext) RefereshDeparturesLoop(context *departures.DeparturesContext) {
@@ -81,12 +116,12 @@ func (d *SiriSmContext) RefereshDeparturesLoop(context *departures.DeparturesCon
 	// Wait 10 seconds before reloading external departures informations
 	time.Sleep(10 * time.Second)
 	for {
-		loadedDepartures, err := loadNotificationFileExample()
-		d.UpdateDepartures(loadedDepartures)
+		updatedDepartures, cancelledDepartures, err := loadNotificationFileExample()
+		d.UpdateDepartures(updatedDepartures, cancelledDepartures)
 		if err != nil {
 			logrus.Error(err)
 		} else {
-			mappedLoadedDepartures := mapDeparturesByStopPointId(loadedDepartures)
+			mappedLoadedDepartures := mapDeparturesByStopPointId(updatedDepartures)
 			context.UpdateDepartures(mappedLoadedDepartures)
 			logrus.Info("Departures are updated")
 		}
@@ -94,19 +129,22 @@ func (d *SiriSmContext) RefereshDeparturesLoop(context *departures.DeparturesCon
 	}
 }
 
-func loadNotificationFileExample() ([]sirism_departure.Departure, error) {
+func loadNotificationFileExample() ([]sirism_departure.Departure, []sirism_departure.CancelledDeparture, error) {
 	fixtureDir := os.Getenv("FIXTUREDIR")
 	if fixtureDir == "" {
 		panic("$FIXTUREDIR isn't set")
 	}
 	uri, err := url.Parse(fmt.Sprintf("file://%s/data_sirism/notif_siri_lille.xml", fixtureDir))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return sirism_departure.LoadDeparturesFromFilePath(uri.Path)
+	updatedDepartures, cancelledDepartures, err := sirism_departure.LoadDeparturesFromFilePath(uri.Path)
+	return updatedDepartures, cancelledDepartures, err
 }
 
-func mapDeparturesByStopPointId(siriSmDepartures []sirism_departure.Departure) map[string][]departures.Departure {
+func mapDeparturesByStopPointId(
+	siriSmDepartures []sirism_departure.Departure,
+) map[string][]departures.Departure {
 	result := make(map[string][]departures.Departure)
 	for _, siriSmDeparture := range siriSmDepartures {
 		departureType := departures.DepartureTypeEstimated
