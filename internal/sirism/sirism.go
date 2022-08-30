@@ -3,7 +3,6 @@ package sirism
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"reflect"
 	"sync"
 	"time"
@@ -13,13 +12,19 @@ import (
 	"github.com/hove-io/forseti/internal/connectors"
 	"github.com/hove-io/forseti/internal/departures"
 	sirism_departure "github.com/hove-io/forseti/internal/sirism/departure"
+	sirism_kinesis "github.com/hove-io/forseti/internal/sirism/kinesis"
 )
 
+const AWS_KINESIS_STREAM_NAME string = "SIRI-SM-Notif"
+
+// const AWS_REGION string = "eu-west-1"
+
 type SiriSmContext struct {
-	connector  *connectors.Connector
-	lastUpdate *time.Time
-	departures map[string]sirism_departure.Departure
-	mutex      sync.RWMutex
+	connector   *connectors.Connector
+	lastUpdate  *time.Time
+	departures  map[string]sirism_departure.Departure
+	notifStream chan []byte
+	mutex       sync.RWMutex
 }
 
 func (s *SiriSmContext) GetConnector() *connectors.Connector {
@@ -105,6 +110,11 @@ func (s *SiriSmContext) InitContext(connectionTimeout time.Duration) {
 		connectionTimeout,
 	)
 	s.departures = make(map[string]sirism_departure.Departure)
+	s.notifStream = make(chan []byte, 1)
+	sirism_kinesis.InitKinesisConsumer(
+		AWS_KINESIS_STREAM_NAME,
+		s.notifStream,
+	)
 	s.lastUpdate = nil
 }
 
@@ -116,30 +126,23 @@ func (d *SiriSmContext) RefereshDeparturesLoop(context *departures.DeparturesCon
 	// Wait 10 seconds before reloading external departures informations
 	time.Sleep(10 * time.Second)
 	for {
-		updatedDepartures, cancelledDepartures, err := loadNotificationFileExample()
+		// Received a notification
+		var notifBytes []byte = <-d.notifStream
+		logrus.Infof("noification received (%d bytes)", len(notifBytes))
+		updatedDepartures, cancelledDepartures, err := sirism_departure.LoadDeparturesFromByteArray(notifBytes)
+		if err != nil {
+			logrus.Errorf("record parsing error: %v", err)
+			continue
+		}
 		d.UpdateDepartures(updatedDepartures, cancelledDepartures)
 		if err != nil {
-			logrus.Error(err)
-		} else {
-			mappedLoadedDepartures := mapDeparturesByStopPointId(updatedDepartures)
-			context.UpdateDepartures(mappedLoadedDepartures)
-			logrus.Info("Departures are updated")
+			logrus.Errorf("departures updating error: %v", err)
+			continue
 		}
-		time.Sleep(10 * time.Second)
+		mappedLoadedDepartures := mapDeparturesByStopPointId(updatedDepartures)
+		context.UpdateDepartures(mappedLoadedDepartures)
+		logrus.Info("departures are updated")
 	}
-}
-
-func loadNotificationFileExample() ([]sirism_departure.Departure, []sirism_departure.CancelledDeparture, error) {
-	fixtureDir := os.Getenv("FIXTUREDIR")
-	if fixtureDir == "" {
-		panic("$FIXTUREDIR isn't set")
-	}
-	uri, err := url.Parse(fmt.Sprintf("file://%s/data_sirism/notif_siri_lille.xml", fixtureDir))
-	if err != nil {
-		return nil, nil, err
-	}
-	updatedDepartures, cancelledDepartures, err := sirism_departure.LoadDeparturesFromFilePath(uri.Path)
-	return updatedDepartures, cancelledDepartures, err
 }
 
 func mapDeparturesByStopPointId(
