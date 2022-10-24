@@ -13,10 +13,13 @@ import (
 	sirism_xml "github.com/hove-io/forseti/internal/sirism/xml"
 )
 
+type ItemId string
+type StopPointRef string
+
 type Departure struct {
-	Id                    string
+	Id                    ItemId
 	LineRef               string
-	StopPointRef          string
+	StopPointRef          StopPointRef
 	DirectionType         departures.DirectionType
 	DestinationRef        string
 	DestinationName       string
@@ -25,8 +28,8 @@ type Departure struct {
 }
 
 type CancelledDeparture struct {
-	Id           string
-	StopPointRef string
+	Id           ItemId
+	StopPointRef StopPointRef
 }
 
 func (d *Departure) DepartureTimeIsTheoretical() bool {
@@ -104,9 +107,9 @@ func LoadDeparturesFromByteArray(xmlBytes []byte) ([]Departure, []CancelledDepar
 					directionType = departures.DirectionTypeBackward
 				}
 				updatedDeparture = Departure{
-					Id:                    monitoredStopVisit.ItemIdentifier,
+					Id:                    ItemId(monitoredStopVisit.ItemIdentifier),
 					LineRef:               lineRef,
-					StopPointRef:          monitoringRef,
+					StopPointRef:          StopPointRef(monitoringRef),
 					DirectionType:         directionType,
 					DestinationRef:        destinationRef,
 					DestinationName:       destinationName,
@@ -132,8 +135,8 @@ func LoadDeparturesFromByteArray(xmlBytes []byte) ([]Departure, []CancelledDepar
 			{
 
 				cancelledDeparture = CancelledDeparture{
-					Id:           monitoredStopVisitCanc.ItemRef,
-					StopPointRef: monitoringRef,
+					Id:           ItemId(monitoredStopVisitCanc.ItemRef),
+					StopPointRef: StopPointRef(monitoringRef),
 				}
 			}
 			cancelledDepartures = append(cancelledDepartures, cancelledDeparture)
