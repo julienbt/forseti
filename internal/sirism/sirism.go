@@ -73,9 +73,17 @@ func (s *SiriSmContext) UpdateDepartures(
 		cancelledDepartureId := cancelledDeparture.Id
 		if _, ok := newDeparturesList[cancelledDepartureId]; ok {
 			delete(newDeparturesList, cancelledDepartureId)
-			logrus.Debugf("The departure '%s' is cancelled", cancelledDepartureId)
+			logrus.Debugf(
+				"The departure '%s' of the stop point '%s' is cancelled",
+				string(cancelledDepartureId),
+				string(cancelledDeparture.StopPointRef),
+			)
 		} else {
-			logrus.Warnf("The departure '%s' cannot be cancelled, it is not exist", cancelledDepartureId)
+			logrus.Warnf(
+				"The departure '%s' of the stop point '%s' cannot be cancelled, it is not exist",
+				string(cancelledDepartureId),
+				string(cancelledDeparture.StopPointRef),
+			)
 		}
 	}
 
@@ -84,10 +92,18 @@ func (s *SiriSmContext) UpdateDepartures(
 		updatedDepartureId := updatedDeparture.Id
 		if _, ok := newDeparturesList[updatedDepartureId]; ok {
 			newDeparturesList[updatedDepartureId] = updatedDeparture
-			logrus.Debugf("The departure '%s' is updated", updatedDepartureId)
+			logrus.Debugf(
+				"The departure '%s' of the stop point '%s' is updated",
+				string(updatedDepartureId),
+				string(updatedDeparture.StopPointRef),
+			)
 		} else {
 			newDeparturesList[updatedDepartureId] = updatedDeparture
-			logrus.Debugf("The departure '%s' is added", updatedDepartureId)
+			logrus.Debugf(
+				"The departure '%s' of the stop point '%s' is added",
+				string(updatedDepartureId),
+				string(updatedDeparture.StopPointRef),
+			)
 		}
 	}
 
@@ -143,14 +159,14 @@ func (d *SiriSmContext) RefereshDeparturesLoop(context *departures.DeparturesCon
 			logrus.Errorf("departures updating error: %v", err)
 			continue
 		}
-		mappedLoadedDepartures := mapDeparturesByStopPointId(updatedDepartures)
+		mappedLoadedDepartures := mapDeparturesByStopPointId(d.departures)
 		context.UpdateDepartures(mappedLoadedDepartures)
 		logrus.Info("departures are updated")
 	}
 }
 
 func mapDeparturesByStopPointId(
-	siriSmDepartures []sirism_departure.Departure,
+	siriSmDepartures map[ItemId]sirism_departure.Departure,
 ) map[string][]departures.Departure {
 	result := make(map[string][]departures.Departure)
 	for _, siriSmDeparture := range siriSmDepartures {
