@@ -229,8 +229,8 @@ func TestExtractDeparturesFromFilePath(t *testing.T) {
 			expectedLastUpdatedDeparture:        nil,
 			expectedNumberOfCancelledDepartures: 1,
 			expectedFirstCancelledDeparture: &CancelledDeparture{
-				Id:           "SIRI:139768251",
-				StopPointRef: "ACO002",
+				Id:           "SIRI:130784050",
+				StopPointRef: "CAS001",
 			},
 			expectedLastCancelledDeparture: nil,
 		},

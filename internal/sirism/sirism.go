@@ -15,7 +15,7 @@ import (
 	sirism_kinesis "github.com/hove-io/forseti/internal/sirism/kinesis"
 )
 
-const AWS_KINESIS_STREAM_NAME string = "SIRI-SM-Notif"
+const AWS_KINESIS_STREAM_NAME string = "siri-sm-notif-stream"
 
 // const AWS_REGION string = "eu-west-1"
 

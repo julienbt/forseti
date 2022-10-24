@@ -351,7 +351,7 @@ func TestNotificationXmlUnmarshall(t *testing.T) {
 					Space: "http://www.siri.org.uk/siri",
 					Local: "StopMonitoringDelivery",
 				},
-				MonitoringRef:       StopPointRef("ACO002"),
+				MonitoringRef:       StopPointRef("CAS001"),
 				MonitoredStopVisits: nil,
 				MonitoredStopVisitCancellations: []MonitoredStopVisitCancellation{
 					{
@@ -359,8 +359,8 @@ func TestNotificationXmlUnmarshall(t *testing.T) {
 							Space: "http://www.siri.org.uk/siri",
 							Local: "MonitoredStopVisitCancellation",
 						},
-						ItemRef:       "SIRI:139768251",
-						MonitoringRef: StopPointRef("ACO002"),
+						ItemRef:       "SIRI:130784050",
+						MonitoringRef: StopPointRef("CAS001"),
 					},
 				},
 			},
