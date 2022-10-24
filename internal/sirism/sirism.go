@@ -15,6 +15,10 @@ import (
 	sirism_kinesis "github.com/hove-io/forseti/internal/sirism/kinesis"
 )
 
+// Type aliases
+type ItemId = sirism_departure.ItemId
+type StopPointRef = sirism_departure.StopPointRef
+
 const AWS_KINESIS_STREAM_NAME string = "siri-sm-notif-stream"
 
 // const AWS_REGION string = "eu-west-1"
@@ -22,7 +26,7 @@ const AWS_KINESIS_STREAM_NAME string = "siri-sm-notif-stream"
 type SiriSmContext struct {
 	connector   *connectors.Connector
 	lastUpdate  *time.Time
-	departures  map[string]sirism_departure.Departure
+	departures  map[ItemId]sirism_departure.Departure
 	notifStream chan []byte
 	mutex       sync.RWMutex
 }
@@ -58,7 +62,7 @@ func (s *SiriSmContext) UpdateDepartures(
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	oldDeparturesList := s.departures
-	newDeparturesList := make(map[string]sirism_departure.Departure, len(oldDeparturesList))
+	newDeparturesList := make(map[ItemId]sirism_departure.Departure, len(oldDeparturesList))
 	// Deep copy of the departures map
 	for departureId, departure := range oldDeparturesList {
 		newDeparturesList[departureId] = departure
@@ -92,7 +96,7 @@ func (s *SiriSmContext) UpdateDepartures(
 	s.lastUpdate = &lastUpdateInUTC
 }
 
-func (s *SiriSmContext) GetDepartures() map[string]sirism_departure.Departure {
+func (s *SiriSmContext) GetDepartures() map[ItemId]sirism_departure.Departure {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.departures
@@ -109,7 +113,7 @@ func (s *SiriSmContext) InitContext(connectionTimeout time.Duration) {
 		time.Duration(-1),
 		connectionTimeout,
 	)
-	s.departures = make(map[string]sirism_departure.Departure)
+	s.departures = make(map[ItemId]sirism_departure.Departure)
 	s.notifStream = make(chan []byte, 1)
 	sirism_kinesis.InitKinesisConsumer(
 		AWS_KINESIS_STREAM_NAME,
@@ -156,7 +160,7 @@ func mapDeparturesByStopPointId(
 		}
 		appendedDeparture := departures.Departure{
 			Line:          siriSmDeparture.LineRef,
-			Stop:          siriSmDeparture.StopPointRef,
+			Stop:          string(siriSmDeparture.StopPointRef),
 			Type:          fmt.Sprint(departureType),
 			Direction:     siriSmDeparture.DestinationRef,
 			DirectionName: siriSmDeparture.DestinationName,

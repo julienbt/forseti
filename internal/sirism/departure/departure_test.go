@@ -26,9 +26,9 @@ var DEPARTURE_TIME_TESTS = []struct {
 	{
 		name: "check theoretical departure time",
 		departure: Departure{
-			Id:              "unused",
+			Id:              ItemId("unused"),
 			LineRef:         "unused",
-			StopPointRef:    "unused",
+			StopPointRef:    StopPointRef("unused"),
 			DirectionType:   departures.DirectionTypeBackward,
 			DestinationRef:  "unused",
 			DestinationName: "unused",
@@ -53,9 +53,9 @@ var DEPARTURE_TIME_TESTS = []struct {
 	{
 		name: "check estimated departure time 01",
 		departure: Departure{
-			Id:              "unused",
+			Id:              ItemId("unused"),
 			LineRef:         "unused",
-			StopPointRef:    "unused",
+			StopPointRef:    StopPointRef("unused"),
 			DirectionType:   departures.DirectionTypeBackward,
 			DestinationRef:  "unused",
 			DestinationName: "unused",
@@ -80,9 +80,9 @@ var DEPARTURE_TIME_TESTS = []struct {
 	{
 		name: "check estimated departure time 02",
 		departure: Departure{
-			Id:              "unused",
+			Id:              ItemId("unused"),
 			LineRef:         "unused",
-			StopPointRef:    "unused",
+			StopPointRef:    StopPointRef("unused"),
 			DirectionType:   departures.DirectionTypeBackward,
 			DestinationRef:  "unused",
 			DestinationName: "unused",
@@ -107,9 +107,9 @@ var DEPARTURE_TIME_TESTS = []struct {
 	{
 		name: "check estimated departure time 03 (timezones differ)",
 		departure: Departure{
-			Id:              "unused",
+			Id:              ItemId("unused"),
 			LineRef:         "unused",
-			StopPointRef:    "unused",
+			StopPointRef:    StopPointRef("unused"),
 			DirectionType:   departures.DirectionTypeBackward,
 			DestinationRef:  "unused",
 			DestinationName: "unused",
@@ -183,9 +183,9 @@ func TestExtractDeparturesFromFilePath(t *testing.T) {
 			xmlFileName:                       "notif_siri_lille.xml",
 			expectedNumberOfUpdatedDepartures: 138,
 			expectedFirstUpdatedDeparture: &Departure{
-				Id:              "SIRI:130784050",
+				Id:              ItemId("SIRI:130784050"),
 				LineRef:         "50",
-				StopPointRef:    "CAS001",
+				StopPointRef:    StopPointRef("CAS001"),
 				DirectionType:   departures.DirectionTypeBackward,
 				DestinationRef:  "LIG114",
 				DestinationName: "GARE LILLE FLANDRES",
@@ -201,9 +201,9 @@ func TestExtractDeparturesFromFilePath(t *testing.T) {
 				),
 			},
 			expectedLastUpdatedDeparture: &Departure{
-				Id:              "SIRI:130827335",
+				Id:              ItemId("SIRI:130827335"),
 				LineRef:         "CO1",
-				StopPointRef:    "CER001",
+				StopPointRef:    StopPointRef("CER001"),
 				DirectionType:   departures.DirectionTypeForward,
 				DestinationRef:  "CAL007",
 				DestinationName: "CHU-EURASANTE",
@@ -229,8 +229,8 @@ func TestExtractDeparturesFromFilePath(t *testing.T) {
 			expectedLastUpdatedDeparture:        nil,
 			expectedNumberOfCancelledDepartures: 1,
 			expectedFirstCancelledDeparture: &CancelledDeparture{
-				Id:           "SIRI:130784050",
-				StopPointRef: "CAS001",
+				Id:           ItemId("SIRI:130784050"),
+				StopPointRef: StopPointRef("CAS001"),
 			},
 			expectedLastCancelledDeparture: nil,
 		},
