@@ -19,16 +19,13 @@ import (
 type ItemId = sirism_departure.ItemId
 type StopPointRef = sirism_departure.StopPointRef
 
-const AWS_KINESIS_STREAM_NAME string = "siri-sm-notif-stream"
-
-// const AWS_REGION string = "eu-west-1"
-
 type SiriSmContext struct {
-	connector   *connectors.Connector
-	lastUpdate  *time.Time
-	departures  map[ItemId]sirism_departure.Departure
-	notifStream chan []byte
-	mutex       sync.RWMutex
+	connector               *connectors.Connector
+	lastUpdate              *time.Time
+	departures              map[ItemId]sirism_departure.Departure
+	notificationsStream     chan []byte
+	notificationsStreamName string
+	mutex                   sync.RWMutex
 }
 
 func (s *SiriSmContext) GetConnector() *connectors.Connector {
@@ -118,7 +115,10 @@ func (s *SiriSmContext) GetDepartures() map[ItemId]sirism_departure.Departure {
 	return s.departures
 }
 
-func (s *SiriSmContext) InitContext(connectionTimeout time.Duration) {
+func (s *SiriSmContext) InitContext(
+	notificationsStreamName string,
+	connectionTimeout time.Duration,
+) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.connector = connectors.NewConnector(
@@ -130,10 +130,11 @@ func (s *SiriSmContext) InitContext(connectionTimeout time.Duration) {
 		connectionTimeout,
 	)
 	s.departures = make(map[ItemId]sirism_departure.Departure)
-	s.notifStream = make(chan []byte, 1)
+	s.notificationsStream = make(chan []byte, 1)
+	s.notificationsStreamName = notificationsStreamName
 	sirism_kinesis.InitKinesisConsumer(
-		AWS_KINESIS_STREAM_NAME,
-		s.notifStream,
+		s.notificationsStreamName,
+		s.notificationsStream,
 	)
 	s.lastUpdate = nil
 }
@@ -147,7 +148,7 @@ func (d *SiriSmContext) RefereshDeparturesLoop(context *departures.DeparturesCon
 	time.Sleep(10 * time.Second)
 	for {
 		// Received a notification
-		var notifBytes []byte = <-d.notifStream
+		var notifBytes []byte = <-d.notificationsStream
 		logrus.Infof("noification received (%d bytes)", len(notifBytes))
 		updatedDepartures, cancelledDepartures, err := sirism_departure.LoadDeparturesFromByteArray(notifBytes)
 		if err != nil {
