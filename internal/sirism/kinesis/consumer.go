@@ -16,10 +16,7 @@ func InitKinesisConsumer(streamName string, notifStream chan []byte) {
 		logrus.Errorf("init AWS-Kinesis client error: %v", err)
 		return
 	}
-	logrus.Debugf(
-		"AWS-Kinesis client initialized: (stream: %s",
-		streamName,
-	)
+	logrus.Debugf("AWS-Kinesis client initialized")
 
 	// initialize consumer
 	c, err := consumer.New(
@@ -31,7 +28,7 @@ func InitKinesisConsumer(streamName string, notifStream chan []byte) {
 		return
 	}
 	logrus.Debugf(
-		"AWS-Kinesis consumer initialized: (stream: %s)",
+		"AWS-Kinesis consumer initialized on stream ** %s **",
 		streamName,
 	)
 

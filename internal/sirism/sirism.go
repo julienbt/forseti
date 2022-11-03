@@ -77,7 +77,7 @@ func (s *SiriSmContext) UpdateDepartures(
 			)
 		} else {
 			logrus.Warnf(
-				"The departure '%s' of the stop point '%s' cannot be cancelled, it is not exist",
+				"The departure '%s' of the stop point '%s' cannot be cancelled, it does not exist",
 				string(cancelledDepartureId),
 				string(cancelledDeparture.StopPointRef),
 			)
@@ -149,7 +149,7 @@ func (d *SiriSmContext) RefereshDeparturesLoop(context *departures.DeparturesCon
 	for {
 		// Received a notification
 		var notifBytes []byte = <-d.notificationsStream
-		logrus.Infof("noification received (%d bytes)", len(notifBytes))
+		logrus.Infof("notification received (%d bytes)", len(notifBytes))
 		updatedDepartures, cancelledDepartures, err := sirism_departure.LoadDeparturesFromByteArray(notifBytes)
 		if err != nil {
 			logrus.Errorf("record parsing error: %v", err)
