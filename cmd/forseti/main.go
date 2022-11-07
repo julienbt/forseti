@@ -113,7 +113,11 @@ func GetConfig() (Config, error) {
 	pflag.Duration("departures-service-refresh", 30*time.Second, "time between refresh of departures data")
 	pflag.String("departures-token", "", "token for departures service source")
 	pflag.String("departures-service-switch", "03:30:00", "Service switch time (format: HH:MM:SS)")
-	pflag.String("departures-notifications-stream-name", "", "Name of a AWS Kinesis Data Stream (required for the connector siri-sm)")
+	pflag.String(
+		"departures-notifications-stream-name",
+		"",
+		"Name of a AWS Kinesis Data Stream (required for the connector siri-sm)",
+	)
 
 	//Passing configurations for parkings
 	pflag.String("parkings-uri", "", "format: [scheme:][//[userinfo@]host][/]path")
