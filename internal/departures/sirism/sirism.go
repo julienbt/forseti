@@ -19,15 +19,13 @@ import (
 )
 
 type SiriSmContext struct {
-	connector               *connectors.Connector
-	lastUpdate              *time.Time
-	departures              map[ItemId]Departure
-	notificationsStream     chan []byte
-	notificationsStreamName string
-	roleARN                 string
-	dailyServiceSwitchTime  *time.Time
-	location                *time.Location
-	mutex                   sync.RWMutex
+	connector                *connectors.Connector
+	lastUpdate               *time.Time
+	departures               map[ItemId]Departure
+	notificationsConsumerCtx context.Context
+	dailyServiceSwitchTime   *time.Time
+	location                 *time.Location
+	mutex                    sync.RWMutex
 }
 
 func (s *SiriSmContext) GetConnector() *connectors.Connector {
@@ -138,70 +136,84 @@ func (s *SiriSmContext) InitContext(
 		connectionTimeout,
 	)
 	s.departures = make(map[ItemId]Departure)
-	s.notificationsStream = make(chan []byte, 1)
-	s.notificationsStreamName = notificationsStreamName
-	s.roleARN = roleARN
 	s.dailyServiceSwitchTime = dailyServiceSwitchTime
+	// Initialize the notifications context metadata
+	{
+		var cancelFunc context.CancelFunc
+		s.notificationsConsumerCtx, cancelFunc = context.WithCancel(context.TODO())
+		metadata := sirism_kinesis.NotificationsConsumerContextMetadata{
+			RoleARN:    roleARN,
+			StreamName: notificationsStreamName,
+			Channel:    make(chan []byte, 1),
+			CancelFunc: cancelFunc,
+		}
+		s.notificationsConsumerCtx = context.WithValue(
+			s.notificationsConsumerCtx,
+			sirism_kinesis.MetadataKey,
+			metadata,
+		)
+	}
 	s.location = location
-	cancelFunc, err := sirism_kinesis.InitKinesisConsumer(
-		s.roleARN,
-		s.notificationsStreamName,
-		s.notificationsStream,
+	err := sirism_kinesis.InitKinesisConsumer(
+		s.notificationsConsumerCtx,
 	)
 	_ = err
 	s.lastUpdate = nil
-	go func(cancelFunc context.CancelFunc) {
-		time.Sleep(10 * time.Second)
-		cancelFunc()
-	}(*cancelFunc)
+
 }
 
 func (d *SiriSmContext) processNotificationsLoop(context *departures.DeparturesContext) {
 
 	for {
-		// Received a notification
-		// TODO: memory optimization
-		var recordBytes []byte = <-d.notificationsStream
-		logrus.Infof("record received (%d bytes)", len(recordBytes))
-		var notificationBytes []byte
-		// uncompress the gzip record
-		{
+		select {
+		case <-d.notificationsConsumerCtx.Done():
+			return
+		default:
+			// Received a notification
 			// TODO: memory optimization
-			inputBuffer := bytes.NewBuffer(recordBytes)
-			gzipReader, err := gzip.NewReader(inputBuffer)
-			if err != nil {
-				logrus.Errorf(
-					"unexpected error occurred while the gzip decompression of the record, the current record is skipped: %v",
-					err,
-				)
-				continue
+			notificationsStream := (d.notificationsConsumerCtx.Value(sirism_kinesis.ChannelKey)).(chan []byte)
+			var recordBytes []byte = <-notificationsStream
+			logrus.Infof("record received (%d bytes)", len(recordBytes))
+			var notificationBytes []byte
+			// uncompress the gzip record
+			{
+				// TODO: memory optimization
+				inputBuffer := bytes.NewBuffer(recordBytes)
+				gzipReader, err := gzip.NewReader(inputBuffer)
+				if err != nil {
+					logrus.Errorf(
+						"unexpected error occurred while the gzip decompression of the record, the current record is skipped: %v",
+						err,
+					)
+					continue
+				}
+				// TODO: initialize with 10 MB
+				outputBuffer := bytes.Buffer{}
+				_, err = outputBuffer.ReadFrom(gzipReader)
+				if err != nil {
+					logrus.Errorf(
+						"unexpected error occurred while the gzip decompression of the record, the current record is skipped: %v",
+						err,
+					)
+					continue
+				}
+				notificationBytes = outputBuffer.Bytes()
 			}
-			// TODO: initialize with 10 MB
-			outputBuffer := bytes.Buffer{}
-			_, err = outputBuffer.ReadFrom(gzipReader)
-			if err != nil {
-				logrus.Errorf(
-					"unexpected error occurred while the gzip decompression of the record, the current record is skipped: %v",
-					err,
-				)
-				continue
-			}
-			notificationBytes = outputBuffer.Bytes()
-		}
-		{
-			d.mutex.Lock()
-			logrus.Infof("notification received (%d bytes)", len(notificationBytes))
-			updatedDepartures, cancelledDepartures, err := LoadDeparturesFromByteArray(notificationBytes)
-			if err != nil {
-				logrus.Errorf("record parsing error: %v", err)
+			{
+				d.mutex.Lock()
+				logrus.Infof("notification received (%d bytes)", len(notificationBytes))
+				updatedDepartures, cancelledDepartures, err := LoadDeparturesFromByteArray(notificationBytes)
+				if err != nil {
+					logrus.Errorf("record parsing error: %v", err)
+					d.mutex.Unlock()
+					continue
+				}
+				d.updateDepartures(updatedDepartures, cancelledDepartures)
+				mappedLoadedDepartures := mapDeparturesByStopPointId(d.departures)
+				context.UpdateDepartures(mappedLoadedDepartures)
+				logrus.Info("departures are updated")
 				d.mutex.Unlock()
-				continue
 			}
-			d.updateDepartures(updatedDepartures, cancelledDepartures)
-			mappedLoadedDepartures := mapDeparturesByStopPointId(d.departures)
-			context.UpdateDepartures(mappedLoadedDepartures)
-			logrus.Info("departures are updated")
-			d.mutex.Unlock()
 		}
 	}
 }

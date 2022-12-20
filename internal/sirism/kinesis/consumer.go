@@ -15,6 +15,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type NotificationsConsumerContextMetadata struct {
+	StreamName string
+	RoleARN    string
+	Channel    chan []byte
+	CancelFunc context.CancelFunc
+}
+
+type NotificationContextKeyType int
+
+const (
+	MetadataKey NotificationContextKeyType = iota
+)
+
 // Returns `true` if the string `x` is contained in `list`,
 // otherwise it returns `false`
 func contains(list []string, x string) bool {
@@ -36,36 +49,44 @@ func (l *customizedLogger) Log(args ...interface{}) {
 	l.logger.Println(args...)
 }
 
-func InitKinesisConsumer(roleARN string, streamName string, notifStream chan []byte) (*context.CancelFunc, error) {
+func InitKinesisConsumer(ctx context.Context) error {
 
-	client, err := initClient(roleARN)
+	// Retreive the metadata of the notification context
+	notificationsCtxMetadata := ctx.Value(MetadataKey).(NotificationsConsumerContextMetadata)
+
+	client, err := initClient(notificationsCtxMetadata.RoleARN)
 	if err != nil {
 		err := fmt.Errorf("init AWS-Kinesis client error: %v", err)
 		logrus.Errorf("%v", err)
-		return nil, err
+		return err
 	}
 	logrus.Debugf("AWS-Kinesis client initialized")
 
-	cancelCtx, cancelFunc := context.WithCancel(context.TODO())
 	// Check if the stream exists
 	{
 		listStreamsOutput, err := client.ListStreams(
-			cancelCtx,
+			ctx,
 			&kinesis.ListStreamsInput{},
 		)
 		if err != nil {
 			err := fmt.Errorf("AWS-Kinesis ListStreams error: %v", err)
 			logrus.Errorf("%v", err)
-			cancelFunc()
-			return nil, err
+			notificationsCtxMetadata.CancelFunc()
+			return err
 		}
-		if contains(listStreamsOutput.StreamNames, streamName) {
-			logrus.Debugf("the AWS-Kinesis Data Stream named ** %s ** exists", streamName)
+		if contains(listStreamsOutput.StreamNames, notificationsCtxMetadata.StreamName) {
+			logrus.Debugf(
+				"the AWS-Kinesis Data Stream named ** %s ** exists",
+				notificationsCtxMetadata.StreamName,
+			)
 		} else {
-			err := fmt.Errorf("the AWS-Kinesis Data Stream named ** %s ** does not exist", streamName)
+			err := fmt.Errorf(
+				"the AWS-Kinesis Data Stream named ** %s ** does not exist",
+				notificationsCtxMetadata.StreamName,
+			)
 			logrus.Errorf("%v", err)
-			cancelFunc()
-			return nil, err
+			notificationsCtxMetadata.CancelFunc()
+			return err
 		}
 	}
 
@@ -76,7 +97,7 @@ func InitKinesisConsumer(roleARN string, streamName string, notifStream chan []b
 			logger: logrus.StandardLogger(),
 		}
 		c, err = kinesis_consumer.New(
-			streamName,
+			notificationsCtxMetadata.StreamName,
 			kinesis_consumer.WithClient(client),
 			kinesis_consumer.WithLogger(&logger),
 			kinesis_consumer.WithShardIteratorType(string(types.ShardIteratorTypeAtTimestamp)),
@@ -86,12 +107,12 @@ func InitKinesisConsumer(roleARN string, streamName string, notifStream chan []b
 	if err != nil {
 		err := fmt.Errorf("create AWS-Kinesis consumer error: %v", err)
 		logrus.Errorf("%v", err)
-		cancelFunc()
-		return nil, err
+		notificationsCtxMetadata.CancelFunc()
+		return err
 	}
 	logrus.Debugf(
 		"AWS-Kinesis consumer initialized on stream ** %s **",
-		streamName,
+		notificationsCtxMetadata.StreamName,
 	)
 
 	go func(ctx context.Context) {
@@ -99,7 +120,7 @@ func InitKinesisConsumer(roleARN string, streamName string, notifStream chan []b
 			ctx,
 			func(r *kinesis_consumer.Record) error {
 				numberOfBytes := len(r.Data)
-				notifStream <- r.Data
+				notificationsCtxMetadata.Channel <- r.Data
 				logrus.Debugf("record received, %d bytes", numberOfBytes)
 				logrus.Info("COUCOU...")
 				return nil
@@ -109,9 +130,9 @@ func InitKinesisConsumer(roleARN string, streamName string, notifStream chan []b
 		if err != nil {
 			logrus.Errorf("scan error: %v", err)
 		}
-	}(cancelCtx)
+	}(ctx)
 
-	return &cancelFunc, nil
+	return nil
 }
 
 func initClient(roleARN string) (*kinesis.Client, error) {
