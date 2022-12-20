@@ -3,6 +3,7 @@ package sirism
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -142,12 +143,17 @@ func (s *SiriSmContext) InitContext(
 	s.roleARN = roleARN
 	s.dailyServiceSwitchTime = dailyServiceSwitchTime
 	s.location = location
-	sirism_kinesis.InitKinesisConsumer(
+	cancelFunc, err := sirism_kinesis.InitKinesisConsumer(
 		s.roleARN,
 		s.notificationsStreamName,
 		s.notificationsStream,
 	)
+	_ = err
 	s.lastUpdate = nil
+	go func(cancelFunc context.CancelFunc) {
+		time.Sleep(10 * time.Second)
+		cancelFunc()
+	}(*cancelFunc)
 }
 
 func (d *SiriSmContext) processNotificationsLoop(context *departures.DeparturesContext) {
