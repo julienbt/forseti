@@ -1,8 +1,6 @@
 package sirism
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -155,52 +153,53 @@ func (s *SiriSmContext) InitContext(
 }
 
 func (d *SiriSmContext) processNotificationsLoop(context *departures.DeparturesContext) {
-
+	cpt := 0
 	for {
 		// Received a notification
 		// TODO: memory optimization
 		var recordBytes []byte = <-d.notificationsStream
-		logrus.Infof("record received (%d bytes)", len(recordBytes))
-		var notificationBytes []byte
-		// uncompress the gzip record
-		{
-			// TODO: memory optimization
-			inputBuffer := bytes.NewBuffer(recordBytes)
-			gzipReader, err := gzip.NewReader(inputBuffer)
-			if err != nil {
-				logrus.Errorf(
-					"unexpected error occurred while the gzip decompression of the record, the current record is skipped: %v",
-					err,
-				)
-				continue
-			}
-			// TODO: initialize with 10 MB
-			outputBuffer := bytes.Buffer{}
-			_, err = outputBuffer.ReadFrom(gzipReader)
-			if err != nil {
-				logrus.Errorf(
-					"unexpected error occurred while the gzip decompression of the record, the current record is skipped: %v",
-					err,
-				)
-				continue
-			}
-			notificationBytes = outputBuffer.Bytes()
-		}
-		{
-			d.mutex.Lock()
-			logrus.Infof("notification received (%d bytes)", len(notificationBytes))
-			updatedDepartures, cancelledDepartures, err := LoadDeparturesFromByteArray(notificationBytes)
-			if err != nil {
-				logrus.Errorf("record parsing error: %v", err)
-				d.mutex.Unlock()
-				continue
-			}
-			d.updateDepartures(updatedDepartures, cancelledDepartures)
-			mappedLoadedDepartures := mapDeparturesByStopPointId(d.departures)
-			context.UpdateDepartures(mappedLoadedDepartures)
-			logrus.Info("departures are updated")
-			d.mutex.Unlock()
-		}
+		logrus.Infof("record #%d received (%d bytes)", cpt, len(recordBytes))
+		cpt++
+		// var notificationBytes []byte
+		// // uncompress the gzip record
+		// {
+		// 	// TODO: memory optimization
+		// 	inputBuffer := bytes.NewBuffer(recordBytes)
+		// 	gzipReader, err := gzip.NewReader(inputBuffer)
+		// 	if err != nil {
+		// 		logrus.Errorf(
+		// 			"unexpected error occurred while the gzip decompression of the record, the current record is skipped: %v",
+		// 			err,
+		// 		)
+		// 		continue
+		// 	}
+		// 	// TODO: initialize with 10 MB
+		// 	outputBuffer := bytes.Buffer{}
+		// 	_, err = outputBuffer.ReadFrom(gzipReader)
+		// 	if err != nil {
+		// 		logrus.Errorf(
+		// 			"unexpected error occurred while the gzip decompression of the record, the current record is skipped: %v",
+		// 			err,
+		// 		)
+		// 		continue
+		// 	}
+		// 	notificationBytes = outputBuffer.Bytes()
+		// }
+		// {
+		// 	d.mutex.Lock()
+		// 	logrus.Infof("notification received (%d bytes)", len(notificationBytes))
+		// 	updatedDepartures, cancelledDepartures, err := LoadDeparturesFromByteArray(notificationBytes)
+		// 	if err != nil {
+		// 		logrus.Errorf("record parsing error: %v", err)
+		// 		d.mutex.Unlock()
+		// 		continue
+		// 	}
+		// 	d.updateDepartures(updatedDepartures, cancelledDepartures)
+		// 	mappedLoadedDepartures := mapDeparturesByStopPointId(d.departures)
+		// 	context.UpdateDepartures(mappedLoadedDepartures)
+		// 	logrus.Info("departures are updated")
+		// 	d.mutex.Unlock()
+		// }
 	}
 }
 

@@ -86,6 +86,8 @@ func InitKinesisConsumer(
 			consumer.WithLogger(&logger),
 			consumer.WithShardIteratorType(string(types.ShardFilterTypeAtTimestamp)),
 			consumer.WithTimestamp(timestamp),
+			consumer.WithScanInterval(1*time.Millisecond),
+			consumer.WithMaxRecords(10_000),
 		)
 	}
 	if err != nil {
